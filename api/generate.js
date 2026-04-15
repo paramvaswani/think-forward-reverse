@@ -2,11 +2,16 @@ export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
 
-  const { goal, current, forward, reverse } = req.body;
+  const { goal, current, forward, reverse, apiKey: clientKey } = req.body;
   if (!goal) return res.status(400).json({ error: "Goal is required" });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY?.replace(/\\n/g, "").trim();
-  if (!apiKey) return res.status(500).json({ error: "API key not configured" });
+  const apiKey =
+    clientKey?.trim() ||
+    process.env.ANTHROPIC_API_KEY?.replace(/\\n/g, "").trim();
+  if (!apiKey)
+    return res
+      .status(500)
+      .json({ error: "No API key. Add your Anthropic key in Settings." });
 
   const hasSteps =
     (forward?.length > 0 && forward.some((s) => s.trim())) ||

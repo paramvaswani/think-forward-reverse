@@ -1163,6 +1163,14 @@
           >Enter a goal, then let AI map forward + reverse paths, detect
           convergence, and score confidence</span
         >
+        <button
+          class="btn btn-ghost"
+          onclick="openSettings()"
+          title="API Key Settings"
+          style="margin-left: auto; font-size: 1rem"
+        >
+          &#9881;
+        </button>
       </div>
 
       <!-- Canvas -->
@@ -1302,6 +1310,67 @@
             Download PNG
           </button>
           <button class="btn btn-secondary" onclick="closeImgModal()">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+      <div class="modal">
+        <h3>Settings</h3>
+        <div style="margin-bottom: 1rem">
+          <label
+            style="
+              font-family: var(--font-mono);
+              font-size: 0.65rem;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              color: var(--text3);
+              display: block;
+              margin-bottom: 0.4rem;
+            "
+            >Anthropic API Key</label
+          >
+          <input
+            type="password"
+            id="settings-api-key"
+            placeholder="sk-ant-..."
+            style="
+              width: 100%;
+              background: var(--bg);
+              border: 1px solid var(--border);
+              border-radius: 8px;
+              color: var(--text);
+              font-family: var(--font-mono);
+              font-size: 0.8rem;
+              padding: 0.7rem 1rem;
+              outline: none;
+            "
+          />
+          <p
+            style="
+              font-size: 0.7rem;
+              color: var(--text3);
+              margin-top: 0.4rem;
+              line-height: 1.4;
+            "
+          >
+            Your key stays in your browser's localStorage. Never sent anywhere
+            except Anthropic's API via our serverless proxy.
+          </p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+          <button
+            class="btn btn-ghost"
+            onclick="clearApiKey()"
+            style="color: var(--terracotta)"
+          >
+            Clear Key
+          </button>
+          <button class="btn btn-secondary" onclick="closeSettings()">
             Close
           </button>
         </div>
@@ -1621,6 +1690,7 @@
           .filter((v) => v.trim());
 
         try {
+          const userKey = localStorage.getItem("tfr-api-key") || "";
           const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1629,6 +1699,7 @@
               current: document.getElementById("current").value,
               forward: fwd,
               reverse: rev,
+              apiKey: userKey,
             }),
           });
           if (!res.ok) {
@@ -2247,6 +2318,25 @@
       function closeImgModal() {
         document.getElementById("img-modal").classList.remove("active");
       }
+      function openSettings() {
+        document.getElementById("settings-api-key").value =
+          localStorage.getItem("tfr-api-key") || "";
+        document.getElementById("settings-modal").classList.add("active");
+      }
+      function closeSettings() {
+        document.getElementById("settings-modal").classList.remove("active");
+      }
+      function saveSettings() {
+        const key = document.getElementById("settings-api-key").value.trim();
+        if (key) localStorage.setItem("tfr-api-key", key);
+        closeSettings();
+        toast("API key saved");
+      }
+      function clearApiKey() {
+        localStorage.removeItem("tfr-api-key");
+        document.getElementById("settings-api-key").value = "";
+        toast("API key cleared");
+      }
       function clearAll() {
         document.querySelectorAll("textarea").forEach((el) => (el.value = ""));
         createEmptySteps();
@@ -2289,6 +2379,7 @@
         if (e.key === "Escape") {
           closeModal();
           closeImgModal();
+          closeSettings();
         }
         if ((e.metaKey || e.ctrlKey) && e.key === "s") {
           e.preventDefault();
@@ -2305,6 +2396,11 @@
       document.getElementById("img-modal").addEventListener("click", (e) => {
         if (e.target === e.currentTarget) closeImgModal();
       });
+      document
+        .getElementById("settings-modal")
+        .addEventListener("click", (e) => {
+          if (e.target === e.currentTarget) closeSettings();
+        });
 
       if (!loadFromURL()) init();
       else {
