@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Think Forward-Reverse</title>
+    <meta
+      name="description"
+      content="A thinking tool that maps paths forward from now and backward from your goal, then finds where they meet."
+    />
+    <meta property="og:title" content="Think Forward-Reverse" />
+    <meta
+      property="og:description"
+      content="Map your path forward. Trace it back. Find where they meet."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #08080a;
+        --surface: #111114;
+        --surface2: #1a1a1f;
+        --border: #2a2a30;
+        --text: #e8e6e3;
+        --text2: #9a9a9f;
+        --text3: #5a5a60;
+        --gold: #c9a87c;
+        --sage: #a0c4a8;
+        --steel: #8ba4c4;
+        --terracotta: #c49a8b;
+        --font-serif: "Instrument Serif", serif;
+        --font-sans: "DM Sans", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+      }
+      html {
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        min-height: 100dvh;
+        overflow-x: hidden;
+      }
+
+      /* Layout */
+      .app {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      /* Hero */
+      .hero {
+        text-align: center;
+        padding: 3rem 0 2.5rem;
+        position: relative;
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 1px;
+        background: var(--border);
+      }
+      .hero h1 {
+        font-family: var(--font-serif);
+        font-size: clamp(2rem, 5vw, 3.2rem);
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: var(--text);
+        line-height: 1.15;
+        margin-bottom: 0.5rem;
+      }
+      .hero h1 span {
+        color: var(--gold);
+      }
+      .hero p {
+        color: var(--text2);
+        font-size: 0.95rem;
+        max-width: 440px;
+        margin: 0 auto;
+        line-height: 1.6;
+      }
+
+      /* Concept explainer */
+      .concept {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin: 2.5rem 0;
+        padding: 1.5rem 0;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+      }
+      .concept-card {
+        padding: 1.25rem;
+        border-radius: 12px;
+        background: var(--surface);
+      }
+      .concept-card h3 {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.5rem;
+      }
+      .concept-card.forward h3 {
+        color: var(--sage);
+      }
+      .concept-card.reverse h3 {
+        color: var(--terracotta);
+      }
+      .concept-card p {
+        color: var(--text2);
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+
+      /* Form sections */
+      .section {
+        margin: 2rem 0;
+      }
+      .section-label {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text3);
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .section-label .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .section-label .dot.gold {
+        background: var(--gold);
+      }
+      .section-label .dot.sage {
+        background: var(--sage);
+      }
+      .section-label .dot.terracotta {
+        background: var(--terracotta);
+      }
+      .section-label .dot.steel {
+        background: var(--steel);
+      }
+
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 0.9rem;
+        padding: 1rem 1.25rem;
+        resize: vertical;
+        outline: none;
+        transition: border-color 0.2s;
+        line-height: 1.6;
+      }
+      textarea:focus,
+      input[type="text"]:focus {
+        border-color: var(--gold);
+      }
+      textarea::placeholder,
+      input::placeholder {
+        color: var(--text3);
+      }
+      textarea {
+        min-height: 80px;
+      }
+
+      /* Steps container */
+      .steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+      }
+      .step-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        animation: fadeIn 0.25s ease;
+      }
+      .step-num {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--text3);
+        width: 24px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .step-row input {
+        flex: 1;
+      }
+      .step-row .remove-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+      .step-row .remove-btn:hover {
+        border-color: var(--border);
+        color: var(--terracotta);
+      }
+      .add-step {
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        padding: 0.65rem 1rem;
+        background: transparent;
+        color: var(--text3);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 0.25rem;
+      }
+      .add-step:hover {
+        border-color: var(--text3);
+        color: var(--text2);
+      }
+
+      /* Convergence */
+      .convergence {
+        margin: 2.5rem 0;
+        padding: 2rem 1.5rem;
+        border-radius: 14px;
+        background: linear-gradient(
+          135deg,
+          rgba(160, 196, 168, 0.06),
+          rgba(196, 154, 139, 0.06)
+        );
+        border: 1px solid var(--border);
+        position: relative;
+      }
+      .convergence::before {
+        content: "";
+        position: absolute;
+        top: -1px;
+        left: 2rem;
+        right: 2rem;
+        height: 1px;
+        background: linear-gradient(90deg, var(--sage), var(--terracotta));
+        opacity: 0.4;
+      }
+      .convergence h2 {
+        font-family: var(--font-serif);
+        font-size: 1.4rem;
+        font-weight: 400;
+        text-align: center;
+        margin-bottom: 0.25rem;
+      }
+      .convergence .sub {
+        text-align: center;
+        color: var(--text2);
+        font-size: 0.8rem;
+        margin-bottom: 1.25rem;
+      }
+
+      /* Insights */
+      .insight-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1.5rem;
+      }
+      .insight-card {
+        padding: 1.25rem;
+        border-radius: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+      }
+      .insight-card h4 {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text3);
+        margin-bottom: 0.5rem;
+      }
+      .insight-card p {
+        font-size: 0.85rem;
+        color: var(--text2);
+        line-height: 1.55;
+      }
+      .insight-card.empty p {
+        color: var(--text3);
+        font-style: italic;
+      }
+
+      /* Visual bridge */
+      .bridge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 2rem 0;
+        padding: 1rem 0;
+      }
+      .bridge-line {
+        height: 1px;
+        flex: 1;
+        max-width: 120px;
+      }
+      .bridge-line.left {
+        background: linear-gradient(90deg, transparent, var(--sage));
+      }
+      .bridge-line.right {
+        background: linear-gradient(90deg, var(--terracotta), transparent);
+      }
+      .bridge-node {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        color: var(--gold);
+      }
+
+      /* Actions */
+      .actions {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        margin: 2.5rem 0 1rem;
+      }
+      .btn {
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        font-family: var(--font-sans);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid var(--border);
+      }
+      .btn-primary {
+        background: var(--gold);
+        color: var(--bg);
+        border-color: var(--gold);
+      }
+      .btn-primary:hover {
+        filter: brightness(1.1);
+      }
+      .btn-secondary {
+        background: transparent;
+        color: var(--text2);
+      }
+      .btn-secondary:hover {
+        border-color: var(--text3);
+        color: var(--text);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text3);
+        border: none;
+        font-size: 0.8rem;
+      }
+      .btn-ghost:hover {
+        color: var(--text2);
+      }
+
+      /* Export modal */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .modal-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 2rem;
+        max-width: 600px;
+        width: 100%;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+      .modal h3 {
+        font-family: var(--font-serif);
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+      }
+      .modal pre {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text2);
+        white-space: pre-wrap;
+        line-height: 1.6;
+        overflow-x: auto;
+      }
+      .modal .actions {
+        margin: 1.5rem 0 0;
+      }
+
+      /* Saved sessions */
+      .saved {
+        margin: 3rem 0 1rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+      }
+      .saved h3 {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text3);
+        margin-bottom: 1rem;
+      }
+      .saved-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .saved-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: border-color 0.15s;
+      }
+      .saved-item:hover {
+        border-color: var(--text3);
+      }
+      .saved-item .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .saved-item .title {
+        font-size: 0.85rem;
+        color: var(--text);
+      }
+      .saved-item .date {
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        color: var(--text3);
+      }
+      .saved-item .delete {
+        background: transparent;
+        border: none;
+        color: var(--text3);
+        cursor: pointer;
+        padding: 0.25rem;
+        font-size: 0.9rem;
+      }
+      .saved-item .delete:hover {
+        color: var(--terracotta);
+      }
+      .empty-state {
+        color: var(--text3);
+        font-size: 0.8rem;
+        text-align: center;
+        padding: 1rem;
+      }
+
+      /* Footer */
+      footer {
+        text-align: center;
+        padding: 2rem 0;
+        color: var(--text3);
+        font-size: 0.7rem;
+        font-family: var(--font-mono);
+      }
+      footer a {
+        color: var(--text2);
+        text-decoration: none;
+      }
+      footer a:hover {
+        color: var(--gold);
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .concept,
+        .insight-grid {
+          grid-template-columns: 1fr;
+        }
+        .app {
+          padding: 1.5rem 1rem 3rem;
+        }
+        .hero h1 {
+          font-size: 1.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <!-- Hero -->
+      <header class="hero">
+        <h1>Think <span>Forward</span>-Reverse</h1>
+        <p>
+          Map your path forward from now. Trace it backward from the goal. Find
+          where the two paths converge.
+        </p>
+      </header>
+
+      <!-- Concept -->
+      <div class="concept">
+        <div class="concept-card forward">
+          <h3>Forward Thinking</h3>
+          <p>
+            Start from where you are. What's the next logical step? And the one
+            after that? Build a causal chain outward.
+          </p>
+        </div>
+        <div class="concept-card reverse">
+          <h3>Reverse Thinking</h3>
+          <p>
+            Start from the end state. What had to be true right before? And
+            before that? Work backwards to now.
+          </p>
+        </div>
+      </div>
+
+      <!-- Goal -->
+      <div class="section">
+        <div class="section-label">
+          <span class="dot gold"></span> Your Goal
+        </div>
+        <textarea
+          id="goal"
+          placeholder="What are you trying to achieve? Be specific about the end state..."
+          rows="2"
+        ></textarea>
+      </div>
+
+      <!-- Current State -->
+      <div class="section">
+        <div class="section-label">
+          <span class="dot gold"></span> Where You Are Now
+        </div>
+        <textarea
+          id="current"
+          placeholder="Describe your current situation honestly..."
+          rows="2"
+        ></textarea>
+      </div>
+
+      <!-- Visual bridge -->
+      <div class="bridge">
+        <div class="bridge-line left"></div>
+        <div class="bridge-node" title="Convergence point">?</div>
+        <div class="bridge-line right"></div>
+      </div>
+
+      <!-- Forward Path -->
+      <div class="section">
+        <div class="section-label">
+          <span class="dot sage"></span> Forward Path &mdash; from now toward
+          the goal
+        </div>
+        <div class="steps" id="forward-steps"></div>
+        <button class="add-step" onclick="addStep('forward')">
+          + add step
+        </button>
+      </div>
+
+      <!-- Reverse Path -->
+      <div class="section">
+        <div class="section-label">
+          <span class="dot terracotta"></span> Reverse Path &mdash; from the
+          goal back to now
+        </div>
+        <div class="steps" id="reverse-steps"></div>
+        <button class="add-step" onclick="addStep('reverse')">
+          + add step
+        </button>
+      </div>
+
+      <!-- Convergence -->
+      <div class="convergence">
+        <h2>Convergence Point</h2>
+        <p class="sub">
+          Where do the two paths meet? What's the critical action both paths
+          point to?
+        </p>
+        <textarea
+          id="convergence"
+          placeholder="The forward path says... The reverse path says... They both point to..."
+          rows="3"
+        ></textarea>
+      </div>
+
+      <!-- Insights -->
+      <div class="section">
+        <div class="section-label">
+          <span class="dot steel"></span> Insights
+        </div>
+        <div class="insight-grid">
+          <div class="insight-card">
+            <h4>Gaps Revealed</h4>
+            <textarea
+              id="insight-gaps"
+              placeholder="What steps appeared in reverse that you missed going forward?"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="insight-card">
+            <h4>First Real Move</h4>
+            <textarea
+              id="insight-move"
+              placeholder="Given both paths, what's the single most important next action?"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="btn btn-primary" onclick="saveSession()">Save</button>
+        <button class="btn btn-secondary" onclick="exportSession()">
+          Export
+        </button>
+        <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+      </div>
+
+      <!-- Saved sessions -->
+      <div class="saved">
+        <h3>Saved Sessions</h3>
+        <div class="saved-list" id="saved-list">
+          <div class="empty-state">No saved sessions yet</div>
+        </div>
+      </div>
+
+      <footer>Think Forward-Reverse &middot; A decision-making tool</footer>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="modal">
+      <div class="modal">
+        <h3>Export</h3>
+        <pre id="export-content"></pre>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="copyExport()">
+            Copy to Clipboard
+          </button>
+          <button class="btn btn-secondary" onclick="closeModal()">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "tfr-sessions";
+
+      // Init forward/reverse with 3 starter steps each
+      function init() {
+        ["forward", "reverse"].forEach((type) => {
+          const container = document.getElementById(`${type}-steps`);
+          container.innerHTML = "";
+          for (let i = 0; i < 3; i++) addStep(type);
+        });
+        loadSavedList();
+      }
+
+      function addStep(type) {
+        const container = document.getElementById(`${type}-steps`);
+        const count = container.children.length + 1;
+        const row = document.createElement("div");
+        row.className = "step-row";
+        row.innerHTML = `
+    <span class="step-num">${count}</span>
+    <input type="text" class="step-input" data-type="${type}" placeholder="${type === "forward" ? "Next step from here..." : "What had to happen before this?"}">
+    <button class="remove-btn" onclick="removeStep(this)" title="Remove">&times;</button>
+  `;
+        container.appendChild(row);
+        renumber(type);
+      }
+
+      function removeStep(btn) {
+        const row = btn.closest(".step-row");
+        const type = row.querySelector(".step-input").dataset.type;
+        row.remove();
+        renumber(type);
+      }
+
+      function renumber(type) {
+        const rows = document.querySelectorAll(`#${type}-steps .step-row`);
+        rows.forEach(
+          (r, i) => (r.querySelector(".step-num").textContent = i + 1),
+        );
+      }
+
+      function getState() {
+        const getSteps = (type) =>
+          [...document.querySelectorAll(`#${type}-steps .step-input`)]
+            .map((i) => i.value)
+            .filter((v) => v.trim());
+        return {
+          goal: document.getElementById("goal").value,
+          current: document.getElementById("current").value,
+          forward: getSteps("forward"),
+          reverse: getSteps("reverse"),
+          convergence: document.getElementById("convergence").value,
+          gaps: document.getElementById("insight-gaps").value,
+          move: document.getElementById("insight-move").value,
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      function loadState(state) {
+        document.getElementById("goal").value = state.goal || "";
+        document.getElementById("current").value = state.current || "";
+        document.getElementById("convergence").value = state.convergence || "";
+        document.getElementById("insight-gaps").value = state.gaps || "";
+        document.getElementById("insight-move").value = state.move || "";
+
+        ["forward", "reverse"].forEach((type) => {
+          const container = document.getElementById(`${type}-steps`);
+          container.innerHTML = "";
+          const steps = state[type] || [];
+          const count = Math.max(steps.length, 3);
+          for (let i = 0; i < count; i++) {
+            addStep(type);
+            const inputs = container.querySelectorAll(".step-input");
+            if (steps[i]) inputs[inputs.length - 1].value = steps[i];
+          }
+        });
+      }
+
+      function getSaved() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveSession() {
+        const state = getState();
+        if (!state.goal.trim()) {
+          document.getElementById("goal").focus();
+          return;
+        }
+        const sessions = getSaved();
+        state.id = Date.now().toString(36);
+        sessions.unshift(state);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+        loadSavedList();
+        // Brief flash on save button
+        const btn = document.querySelector(".btn-primary");
+        btn.textContent = "Saved";
+        setTimeout(() => (btn.textContent = "Save"), 1200);
+      }
+
+      function loadSavedList() {
+        const list = document.getElementById("saved-list");
+        const sessions = getSaved();
+        if (!sessions.length) {
+          list.innerHTML =
+            '<div class="empty-state">No saved sessions yet</div>';
+          return;
+        }
+        list.innerHTML = sessions
+          .map((s) => {
+            const d = new Date(s.timestamp);
+            const dateStr = d.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+            const title =
+              s.goal.substring(0, 60) + (s.goal.length > 60 ? "..." : "");
+            return `<div class="saved-item" onclick="loadSession('${s.id}')">
+      <div class="meta"><span class="title">${esc(title)}</span><span class="date">${dateStr}</span></div>
+      <button class="delete" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">&times;</button>
+    </div>`;
+          })
+          .join("");
+      }
+
+      function loadSession(id) {
+        const s = getSaved().find((s) => s.id === id);
+        if (s) loadState(s);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function deleteSession(id) {
+        const sessions = getSaved().filter((s) => s.id !== id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+        loadSavedList();
+      }
+
+      function exportSession() {
+        const s = getState();
+        let text = `THINK FORWARD-REVERSE\n${"=".repeat(40)}\n\n`;
+        text += `GOAL: ${s.goal || "(not set)"}\n\n`;
+        text += `CURRENT STATE: ${s.current || "(not set)"}\n\n`;
+        text += `FORWARD PATH (from now)\n${"-".repeat(30)}\n`;
+        s.forward.forEach((step, i) => (text += `  ${i + 1}. ${step}\n`));
+        text += `\nREVERSE PATH (from goal)\n${"-".repeat(30)}\n`;
+        s.reverse.forEach((step, i) => (text += `  ${i + 1}. ${step}\n`));
+        text += `\nCONVERGENCE POINT\n${"-".repeat(30)}\n${s.convergence || "(not set)"}\n`;
+        text += `\nGAPS REVEALED: ${s.gaps || "(not set)"}\n`;
+        text += `\nFIRST REAL MOVE: ${s.move || "(not set)"}\n`;
+
+        document.getElementById("export-content").textContent = text;
+        document.getElementById("modal").classList.add("active");
+      }
+
+      function copyExport() {
+        const text = document.getElementById("export-content").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.querySelector(".modal .btn-primary");
+          btn.textContent = "Copied";
+          setTimeout(() => (btn.textContent = "Copy to Clipboard"), 1200);
+        });
+      }
+
+      function closeModal() {
+        document.getElementById("modal").classList.remove("active");
+      }
+
+      function clearAll() {
+        document
+          .querySelectorAll('textarea, input[type="text"]')
+          .forEach((el) => (el.value = ""));
+        init();
+      }
+
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      // Close modal on overlay click
+      document.getElementById("modal").addEventListener("click", (e) => {
+        if (e.target === e.currentTarget) closeModal();
+      });
+
+      // Close modal on Escape
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+      });
+
+      init();
+    </script>
+  </body>
+</html>
