@@ -772,6 +772,61 @@
         border-color: var(--sage);
         background: var(--sage-dim);
       }
+      .btn-publish {
+        background: linear-gradient(135deg, var(--gold-dim), transparent);
+        color: var(--gold);
+        border-color: var(--gold);
+      }
+      .btn-publish:hover {
+        background: var(--gold-dim);
+        box-shadow: 0 0 16px var(--gold-dim);
+      }
+
+      /* Published read-only view */
+      .published-banner {
+        display: none;
+        text-align: center;
+        padding: 1rem;
+        margin: -0.5rem 0 1.5rem;
+        border-radius: 10px;
+        background: var(--gold-dim);
+        border: 1px solid rgba(201, 168, 124, 0.2);
+        font-size: 0.8rem;
+        color: var(--gold);
+      }
+      .published-banner a {
+        color: var(--text);
+        text-decoration: underline;
+        margin-left: 0.5rem;
+      }
+      body.published .published-banner {
+        display: block;
+      }
+      body.published textarea,
+      body.published input[type="text"] {
+        pointer-events: none;
+        opacity: 0.85;
+        border-color: transparent;
+      }
+      body.published .add-step,
+      body.published .remove-btn,
+      body.published .drag-handle,
+      body.published .step-check,
+      body.published .conf-bar,
+      body.published .ai-row,
+      body.published .actions,
+      body.published .tabs,
+      body.published .tab-content,
+      body.published .concept-toggle,
+      body.published footer {
+        display: none;
+      }
+      body.published .hero {
+        padding-bottom: 1rem;
+      }
+      body.published .hero::after {
+        display: none;
+      }
 
       /* Tabs */
       .tabs {
@@ -1089,6 +1144,10 @@
         </div>
       </header>
 
+      <div class="published-banner" id="published-banner">
+        You're viewing a published session. <a href="/">Create your own</a>
+      </div>
+
       <div class="concept-toggle" id="concept-toggle" onclick="toggleConcept()">
         How it works
         <svg
@@ -1254,13 +1313,15 @@
 
       <div class="actions">
         <button class="btn btn-primary" onclick="saveSession()">Save</button>
+        <button class="btn btn-publish" onclick="publishSession()">
+          Publish
+        </button>
         <button class="btn btn-secondary" onclick="exportSession()">
           Export Text
         </button>
         <button class="btn btn-export-img" onclick="exportImage()">
           Export Card
         </button>
-        <button class="btn btn-share" onclick="shareURL()">Share Link</button>
         <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
       </div>
 
@@ -2255,36 +2316,55 @@
         toast("Card downloaded");
       }
 
-      function shareURL() {
+      function encodeSession() {
         const s = getState();
-        const compressed = btoa(
+        return btoa(
           encodeURIComponent(
             JSON.stringify({
               g: s.goal,
               c: s.current,
-              f: s.forward.map((x) => (typeof x === "string" ? x : x.text)),
-              r: s.reverse.map((x) => (typeof x === "string" ? x : x.text)),
+              f: s.forward.map((x) => ({
+                t: typeof x === "string" ? x : x.text,
+                cf: typeof x === "object" ? x.confidence : "none",
+              })),
+              r: s.reverse.map((x) => ({
+                t: typeof x === "string" ? x : x.text,
+                cf: typeof x === "object" ? x.confidence : "none",
+              })),
               v: s.convergence,
               ga: s.gaps,
               m: s.move,
             }),
           ),
         );
-        const url = location.origin + location.pathname + "#d=" + compressed;
-        if (url.length > 2000) {
-          toast("Too large for URL — use Export instead");
+      }
+
+      function publishSession() {
+        const s = getState();
+        if (!s.goal.trim()) {
+          document.getElementById("goal").focus();
+          toast("Enter a goal first");
+          return;
+        }
+        const encoded = encodeSession();
+        const url = location.origin + location.pathname + "#p=" + encoded;
+        if (url.length > 8000) {
+          toast("Session too large — trim steps or use Export Card");
           return;
         }
         navigator.clipboard
           .writeText(url)
-          .then(() => toast("Share link copied"));
+          .then(() => toast("Published link copied — share it anywhere"));
       }
 
       function loadFromURL() {
         const hash = location.hash;
-        if (!hash.startsWith("#d=")) return false;
+        const isPublished = hash.startsWith("#p=");
+        const isShared = hash.startsWith("#d=");
+        if (!isPublished && !isShared) return false;
         try {
-          const data = JSON.parse(decodeURIComponent(atob(hash.slice(3))));
+          const raw = hash.slice(3);
+          const data = JSON.parse(decodeURIComponent(atob(raw)));
           document.getElementById("goal").value = data.g || "";
           document.getElementById("current").value = data.c || "";
           document.getElementById("convergence").value = data.v || "";
@@ -2296,11 +2376,21 @@
             c.innerHTML = "";
             const steps = data[key] || [];
             const count = Math.max(steps.length, 3);
-            for (let i = 0; i < count; i++)
-              addStep(type, steps[i] || "", false, "none");
+            for (let i = 0; i < count; i++) {
+              const step = steps[i];
+              const text = typeof step === "string" ? step : step?.t || "";
+              const conf =
+                typeof step === "object" ? step?.cf || "none" : "none";
+              addStep(type, text, false, conf);
+            }
           });
-          location.hash = "";
-          toast("Shared session loaded");
+          if (isPublished) {
+            document.body.classList.add("published");
+            document.title = (data.g || "Session") + " — Think Forward-Reverse";
+          } else {
+            location.hash = "";
+            toast("Session loaded — edit away");
+          }
           return true;
         } catch {
           return false;
