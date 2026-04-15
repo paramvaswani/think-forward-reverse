@@ -781,6 +781,75 @@
         background: var(--gold-dim);
         box-shadow: 0 0 16px var(--gold-dim);
       }
+      .btn-share-results {
+        background: linear-gradient(
+          135deg,
+          rgba(139, 164, 196, 0.12),
+          rgba(176, 154, 196, 0.12)
+        );
+        color: var(--steel);
+        border-color: var(--steel);
+      }
+      .btn-share-results:hover {
+        background: var(--steel-dim);
+        box-shadow: 0 0 16px var(--steel-dim);
+      }
+
+      /* Share modal */
+      .share-preview {
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 1.25rem;
+        border: 1px solid var(--border);
+      }
+      .share-preview canvas {
+        width: 100%;
+        display: block;
+      }
+      .share-text-preview {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        font-size: 0.78rem;
+        color: var(--text2);
+        line-height: 1.5;
+        margin-bottom: 1rem;
+        white-space: pre-wrap;
+        font-family: var(--font-sans);
+      }
+      .share-platforms {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .share-plat {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.7rem 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 0.8rem;
+        font-family: var(--font-sans);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .share-plat:hover {
+        border-color: var(--text3);
+        background: var(--surface2);
+      }
+      .share-plat svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+      .share-plat .plat-name {
+        font-weight: 500;
+      }
 
       /* Published read-only view */
       .published-banner {
@@ -1316,6 +1385,9 @@
         <button class="btn btn-publish" onclick="publishSession()">
           Publish
         </button>
+        <button class="btn btn-share-results" onclick="shareResults()">
+          Share My Results
+        </button>
         <button class="btn btn-secondary" onclick="exportSession()">
           Export Text
         </button>
@@ -1371,6 +1443,61 @@
             Download PNG
           </button>
           <button class="btn btn-secondary" onclick="closeImgModal()">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share Results Modal -->
+    <div class="modal-overlay" id="share-modal">
+      <div class="modal">
+        <h3>Share Your Results</h3>
+        <div class="share-preview"><canvas id="share-canvas"></canvas></div>
+        <div class="share-text-preview" id="share-text-preview"></div>
+        <div class="share-platforms">
+          <button class="share-plat" onclick="shareToX()">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+              />
+            </svg>
+            <span class="plat-name">X / Twitter</span>
+          </button>
+          <button class="share-plat" onclick="shareToLinkedIn()">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"
+              />
+            </svg>
+            <span class="plat-name">LinkedIn</span>
+          </button>
+          <button class="share-plat" onclick="shareToBluesky()">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.785 2.627 3.601 3.495 6.209 3.254-.137.024-4.724.29-4.724 3.3 0 3.158 4.155 5.066 7.891 5.199 5.37.19 9.87-2.728 9.87-8.842C19.87 9.28 16.259 5.618 12 10.8z"
+              />
+            </svg>
+            <span class="plat-name">Bluesky</span>
+          </button>
+          <button class="share-plat" onclick="copyShareText()">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+            <span class="plat-name">Copy Text</span>
+          </button>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="downloadShareCard()">
+            Download Card
+          </button>
+          <button class="btn btn-secondary" onclick="closeShareModal()">
             Close
           </button>
         </div>
@@ -2316,6 +2443,266 @@
         toast("Card downloaded");
       }
 
+      // Share Results
+      function getShareText() {
+        const s = getState();
+        const fSteps = s.forward.filter((x) =>
+          (typeof x === "string" ? x : x.text).trim(),
+        );
+        const rSteps = s.reverse.filter((x) =>
+          (typeof x === "string" ? x : x.text).trim(),
+        );
+        const fCount = fSteps.length;
+        const rCount = rSteps.length;
+        let text = `I mapped my path to: "${s.goal}"\n\n`;
+        text += `Forward path (${fCount} steps from now):\n`;
+        fSteps.slice(0, 4).forEach((st, i) => {
+          text += `  ${i + 1}. ${typeof st === "string" ? st : st.text}\n`;
+        });
+        if (fCount > 4) text += `  ... +${fCount - 4} more\n`;
+        text += `\nReverse path (${rCount} steps from goal):\n`;
+        rSteps.slice(0, 4).forEach((st, i) => {
+          text += `  ${i + 1}. ${typeof st === "string" ? st : st.text}\n`;
+        });
+        if (rCount > 4) text += `  ... +${rCount - 4} more\n`;
+        if (s.convergence) text += `\nConvergence: ${s.convergence}\n`;
+        if (s.move) text += `\nFirst move: ${s.move}\n`;
+        text += `\nBuilt with Think Forward-Reverse`;
+        return text;
+      }
+
+      function getShareURL() {
+        const encoded = encodeSession();
+        return location.origin + location.pathname + "#p=" + encoded;
+      }
+
+      function renderShareCard() {
+        const s = getState();
+        const c = document.getElementById("share-canvas");
+        const W = 1080,
+          H = 1080;
+        c.width = W;
+        c.height = H;
+        const x = c.getContext("2d");
+
+        // BG
+        x.fillStyle = "#08080a";
+        x.fillRect(0, 0, W, H);
+        const grd = x.createLinearGradient(0, 0, W, H);
+        grd.addColorStop(0, "rgba(160,196,168,0.06)");
+        grd.addColorStop(1, "rgba(196,154,139,0.06)");
+        x.fillStyle = grd;
+        x.fillRect(0, 0, W, H);
+
+        // Top line
+        const lg = x.createLinearGradient(60, 0, W - 60, 0);
+        lg.addColorStop(0, "#a0c4a8");
+        lg.addColorStop(0.5, "#c9a87c");
+        lg.addColorStop(1, "#c49a8b");
+        x.strokeStyle = lg;
+        x.lineWidth = 2;
+        x.beginPath();
+        x.moveTo(60, 50);
+        x.lineTo(W - 60, 50);
+        x.stroke();
+
+        // Title
+        x.font = "52px Instrument Serif, serif";
+        x.fillStyle = "#e8e6e3";
+        x.fillText("Think", 60, 110);
+        x.fillStyle = "#a0c4a8";
+        x.fillText("Forward", 195, 110);
+        x.fillStyle = "#e8e6e3";
+        x.fillText("-", 385, 110);
+        x.fillStyle = "#c49a8b";
+        x.fillText("Reverse", 410, 110);
+
+        // Goal
+        x.font = "500 16px JetBrains Mono, monospace";
+        x.fillStyle = "#5a5a60";
+        x.fillText("GOAL", 60, 165);
+        x.font = "26px DM Sans, sans-serif";
+        x.fillStyle = "#e8e6e3";
+        wrapText(x, s.goal || "(not set)", 60, 200, W - 120, 32);
+
+        // Divider
+        const goalLines =
+          Math.ceil(x.measureText(s.goal || "").width / (W - 120)) || 1;
+        let yOff = 200 + goalLines * 32 + 20;
+
+        // Forward
+        const fSteps = s.forward.filter((st) =>
+          (typeof st === "string" ? st : st.text).trim(),
+        );
+        x.font = "500 14px JetBrains Mono, monospace";
+        x.fillStyle = "#a0c4a8";
+        x.fillText("FORWARD PATH", 60, yOff);
+        yOff += 28;
+        x.font = "18px DM Sans, sans-serif";
+        fSteps.slice(0, 5).forEach((st, i) => {
+          const text = typeof st === "string" ? st : st.text;
+          const conf = typeof st === "object" ? st.confidence : "none";
+          const colors = {
+            high: "#a0c4a8",
+            med: "#c9a87c",
+            low: "#c49a8b",
+            none: "#2a2a30",
+          };
+          x.fillStyle = colors[conf] || colors.none;
+          x.fillRect(60, yOff - 14, 4, 20);
+          x.fillStyle = "#9a9a9f";
+          x.fillText(
+            `${i + 1}. ${text.substring(0, 45)}${text.length > 45 ? "..." : ""}`,
+            76,
+            yOff,
+          );
+          yOff += 30;
+        });
+
+        yOff += 15;
+
+        // Reverse
+        const rSteps = s.reverse.filter((st) =>
+          (typeof st === "string" ? st : st.text).trim(),
+        );
+        x.font = "500 14px JetBrains Mono, monospace";
+        x.fillStyle = "#c49a8b";
+        x.fillText("REVERSE PATH", 60, yOff);
+        yOff += 28;
+        x.font = "18px DM Sans, sans-serif";
+        rSteps.slice(0, 5).forEach((st, i) => {
+          const text = typeof st === "string" ? st : st.text;
+          const conf = typeof st === "object" ? st.confidence : "none";
+          const colors = {
+            high: "#a0c4a8",
+            med: "#c9a87c",
+            low: "#c49a8b",
+            none: "#2a2a30",
+          };
+          x.fillStyle = colors[conf] || colors.none;
+          x.fillRect(60, yOff - 14, 4, 20);
+          x.fillStyle = "#9a9a9f";
+          x.fillText(
+            `${i + 1}. ${text.substring(0, 45)}${text.length > 45 ? "..." : ""}`,
+            76,
+            yOff,
+          );
+          yOff += 30;
+        });
+
+        // Convergence
+        if (s.convergence) {
+          yOff += 20;
+          const cg = x.createLinearGradient(60, 0, W - 60, 0);
+          cg.addColorStop(0, "#a0c4a8");
+          cg.addColorStop(0.5, "#c9a87c");
+          cg.addColorStop(1, "#c49a8b");
+          x.strokeStyle = cg;
+          x.lineWidth = 1;
+          x.beginPath();
+          x.moveTo(60, yOff);
+          x.lineTo(W - 60, yOff);
+          x.stroke();
+          yOff += 28;
+          x.font = "500 14px JetBrains Mono, monospace";
+          x.fillStyle = "#c9a87c";
+          x.fillText("CONVERGENCE", 60, yOff);
+          yOff += 24;
+          x.font = "20px DM Sans, sans-serif";
+          x.fillStyle = "#e8e6e3";
+          wrapText(x, s.convergence, 60, yOff, W - 120, 26);
+        }
+
+        // First move
+        if (s.move) {
+          const mvY = Math.max(yOff + 60, H - 160);
+          x.font = "500 14px JetBrains Mono, monospace";
+          x.fillStyle = "#8ba4c4";
+          x.fillText("FIRST MOVE", 60, mvY);
+          x.font = "20px DM Sans, sans-serif";
+          x.fillStyle = "#e8e6e3";
+          wrapText(x, s.move, 60, mvY + 26, W - 120, 26);
+        }
+
+        // Bottom branding
+        x.font = "13px JetBrains Mono, monospace";
+        x.fillStyle = "#5a5a60";
+        x.fillText("think-forward-reverse.vercel.app", 60, H - 40);
+
+        // Bottom line
+        x.strokeStyle = lg;
+        x.lineWidth = 1;
+        x.beginPath();
+        x.moveTo(60, H - 55);
+        x.lineTo(W - 60, H - 55);
+        x.stroke();
+      }
+
+      function shareResults() {
+        const s = getState();
+        if (!s.goal.trim()) {
+          document.getElementById("goal").focus();
+          toast("Enter a goal first");
+          return;
+        }
+        renderShareCard();
+        document.getElementById("share-text-preview").textContent =
+          getShareText();
+        document.getElementById("share-modal").classList.add("active");
+      }
+
+      function shareToX() {
+        const s = getState();
+        const url = getShareURL();
+        const text =
+          `I mapped my path to: "${s.goal}"\n\n` +
+          (s.convergence ? `Convergence point: ${s.convergence}\n\n` : "") +
+          (s.move ? `First move: ${s.move}\n\n` : "") +
+          `Built with Think Forward-Reverse`;
+        const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+        window.open(tweetUrl, "_blank");
+      }
+
+      function shareToLinkedIn() {
+        const url = getShareURL();
+        window.open(
+          `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+          "_blank",
+        );
+      }
+
+      function shareToBluesky() {
+        const s = getState();
+        const url = getShareURL();
+        const text =
+          `I mapped my path to: "${s.goal}"\n\n` +
+          (s.convergence ? `Convergence: ${s.convergence}\n\n` : "") +
+          `Built with Think Forward-Reverse\n${url}`;
+        window.open(
+          `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`,
+          "_blank",
+        );
+      }
+
+      function copyShareText() {
+        navigator.clipboard
+          .writeText(getShareText() + "\n\n" + getShareURL())
+          .then(() => toast("Copied to clipboard"));
+      }
+
+      function downloadShareCard() {
+        const c = document.getElementById("share-canvas");
+        const link = document.createElement("a");
+        link.download = "think-forward-reverse-results.png";
+        link.href = c.toDataURL("image/png");
+        link.click();
+        toast("Card downloaded");
+      }
+
+      function closeShareModal() {
+        document.getElementById("share-modal").classList.remove("active");
+      }
+
       function encodeSession() {
         const s = getState();
         return btoa(
@@ -2470,6 +2857,7 @@
           closeModal();
           closeImgModal();
           closeSettings();
+          closeShareModal();
         }
         if ((e.metaKey || e.ctrlKey) && e.key === "s") {
           e.preventDefault();
@@ -2491,6 +2879,9 @@
         .addEventListener("click", (e) => {
           if (e.target === e.currentTarget) closeSettings();
         });
+      document.getElementById("share-modal").addEventListener("click", (e) => {
+        if (e.target === e.currentTarget) closeShareModal();
+      });
 
       if (!loadFromURL()) init();
       else {
