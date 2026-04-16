@@ -234,12 +234,35 @@
         <button class="btn btn-share-results" onclick="shareResults()">
           Share My Results
         </button>
-        <button class="btn btn-secondary" onclick="exportSession()">
-          Export Text
-        </button>
-        <button class="btn btn-export-img" onclick="exportImage()">
-          Export Card
-        </button>
+        <div
+          class="export-dropdown"
+          style="position: relative; display: inline-block"
+        >
+          <button
+            class="btn btn-secondary"
+            onclick="this.nextElementSibling.classList.toggle('show')"
+          >
+            Export
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              style="
+                width: 12px;
+                height: 12px;
+                margin-left: 4px;
+                vertical-align: middle;
+              "
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          <div class="export-menu" onclick="this.classList.remove('show')">
+            <button onclick="exportSession()">Export as Text</button>
+            <button onclick="exportImage()">Export as Card</button>
+          </div>
+        </div>
         <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
       </div>
 
