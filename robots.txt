@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://think-forward-reverse.vercel.app/sitemap.xml

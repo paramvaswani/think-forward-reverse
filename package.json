@@ -1,13 +1,8 @@
 {
   "name": "think-forward-reverse",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+    "build": "npx esbuild app.js --minify --outfile=app.min.js && npx esbuild style.css --minify --outfile=style.min.css && mv app.min.js app.js && mv style.min.css style.css"
+  }
 }
