@@ -435,5 +435,13 @@
     </div>
 
     <div class="toast" id="toast"></div>
+    <script>
+      document.addEventListener("click", function (e) {
+        if (!e.target.closest(".export-dropdown")) {
+          var m = document.querySelector(".export-menu");
+          if (m) m.classList.remove("show");
+        }
+      });
+    </script>
   </body>
 </html>
