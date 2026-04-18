@@ -760,6 +760,18 @@ textarea {
   transition: all 0.25s;
   border: 1px solid var(--border);
 }
+.btn:active {
+  transform: scale(0.96);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.saved-item:focus-visible,
+.template-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 .btn-primary {
   background: var(--gold);
   color: var(--bg);

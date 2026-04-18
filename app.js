@@ -1014,7 +1014,8 @@ function copyShareText() {
 ` +
         getShareURL(),
     )
-    .then(() => toast("Copied to clipboard"));
+    .then(() => toast("Copied to clipboard"))
+    .catch(() => toast("Failed to copy"));
 }
 function downloadShareCard() {
   const e = document.getElementById("share-canvas"),
@@ -1062,7 +1063,8 @@ function publishSession() {
   }
   navigator.clipboard
     .writeText(o)
-    .then(() => toast("Published link copied \u2014 share it anywhere"));
+    .then(() => toast("Published link copied \u2014 share it anywhere"))
+    .catch(() => toast("Failed to copy link"));
 }
 function loadFromURL() {
   const e = location.hash,
@@ -1099,13 +1101,15 @@ function loadFromURL() {
       !0
     );
   } catch {
+    toast("Link is invalid or corrupted");
     return !1;
   }
 }
 function copyExport() {
   navigator.clipboard
     .writeText(document.getElementById("export-content").textContent)
-    .then(() => toast("Copied"));
+    .then(() => toast("Copied"))
+    .catch(() => toast("Failed to copy"));
 }
 function closeModal() {
   document.getElementById("modal").classList.remove("active");
