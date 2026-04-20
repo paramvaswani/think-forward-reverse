@@ -8,7 +8,7 @@ const TOOLS = [
   {
     name: "list_sessions",
     description:
-      "List the user's TFR thinking sessions. TFR stores sessions in client-side localStorage (tfr-tree-v1), so the server returns a client-only note plus demo sessions. Future: client-invocable path so the browser can return real sessions.",
+      "List recent TFR thinking sessions (stub payload). Returns {id, topic, direction, created} tuples covering forward, reverse, and both directions.",
     inputSchema: {
       type: "object",
       properties: {
@@ -20,40 +20,42 @@ const TOOLS = [
     },
   },
   {
-    name: "new_session",
+    name: "latest_thinking",
     description:
-      "Start a new forward-reverse thinking session for a question. Returns a starter tree with a forward-seeded node and a reverse-seeded node. If ANTHROPIC_API_KEY is set, uses Claude Haiku to seed both paths; otherwise returns a stub shell.",
+      "Return the most recent TFR session's current state: topic, forwardBranch steps, reverseBranch steps, and synthesis. Stub payload illustrating the shape.",
     inputSchema: {
       type: "object",
-      required: ["question"],
+      properties: {},
+    },
+  },
+  {
+    name: "start_session",
+    description:
+      "Start a new forward-reverse thinking session for a topic. Returns {sessionId, initialQuestion, direction} stub. Direction is one of 'forward', 'reverse', 'both'.",
+    inputSchema: {
+      type: "object",
+      required: ["topic"],
       properties: {
-        question: {
+        topic: {
           type: "string",
-          description:
-            "The root question or goal to think through forward + reverse.",
+          description: "The root question or goal to think through.",
         },
-        current: {
+        direction: {
           type: "string",
+          enum: ["forward", "reverse", "both"],
           description:
-            "Optional: current state / starting context for the forward path.",
+            "Which direction to seed. 'forward' = from now toward goal, 'reverse' = from goal back to now, 'both' = seed both branches.",
         },
       },
     },
   },
   {
-    name: "get_session",
+    name: "explain_technique",
     description:
-      "Get a TFR session tree by id. Sessions live in client localStorage, so the server returns a stub session matching the shape the client would produce.",
+      "Return a structured explanation of the forward-reverse thinking technique: what it is, when to use each direction, and the synthesis step.",
     inputSchema: {
       type: "object",
-      required: ["sessionId"],
-      properties: {
-        sessionId: {
-          type: "string",
-          description:
-            "Session id (as returned by list_sessions or new_session).",
-        },
-      },
+      properties: {},
     },
   },
 ];
@@ -62,203 +64,104 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-function emptyTree(rootPrompt) {
-  const rootId = uid();
-  return {
-    rootId,
-    nodes: {
-      [rootId]: {
-        id: rootId,
-        parentId: null,
-        prompt: rootPrompt,
-        response: "",
-        kind: "root",
-        collapsed: false,
-        createdAt: Date.now(),
-      },
-    },
-  };
-}
-
 function seedDemoSessions() {
+  const now = Date.now();
   return [
     {
-      sessionId: "demo-01",
-      question: "How do I launch Keep to 100 paying users in 90 days?",
-      createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
-      forwardSeed:
-        "Start: landing page live, Whoop oracle prototype working. Next: 5 beta forfeits running on fake money, then real charity forfeit flow on Stripe, then narrow to one commitment type (sleep) and hand-recruit 50 friends.",
-      reverseSeed:
-        "Goal: 100 paying users. Back from there: 100 users means ~300 signups with 33% conversion. 300 signups means 1 viral Substack + 1 HN front-page moment. The critical shared move is a sharp public artifact that demos the charity-forfeit mechanic.",
+      id: "demo-01",
+      topic: "How do I launch Keep to 100 paying users in 90 days?",
+      direction: "forward",
+      created: new Date(now - 1000 * 60 * 60 * 24 * 3).toISOString(),
     },
     {
-      sessionId: "demo-02",
-      question: "Should I raise a pre-seed now or wait 3 months?",
-      createdAt: Date.now() - 1000 * 60 * 60 * 24 * 7,
-      forwardSeed:
-        "Now: strong content flywheel, weak revenue, oracle tech novel. Forward: ship real-money Gibraltar flow, get 20 users paying forfeits, then raise on traction instead of deck.",
-      reverseSeed:
-        "From a closed $1.5M round: reverse-engineer what investors needed to see. Answer: founding story + oracle defensibility + one working commitment loop. Convergence: ship the loop before the deck.",
+      id: "demo-02",
+      topic: "Should I raise a pre-seed now or wait 3 months?",
+      direction: "reverse",
+      created: new Date(now - 1000 * 60 * 60 * 24 * 7).toISOString(),
+    },
+    {
+      id: "demo-03",
+      topic: "What would make TFR worth paying for?",
+      direction: "both",
+      created: new Date(now - 1000 * 60 * 60 * 12).toISOString(),
     },
   ];
-}
-
-async function seedWithClaude({ question, current, apiKey }) {
-  const prompt = `You are seeding a Forward-Reverse thinking tree for this question.
-
-Question: ${question}
-${current ? `Current state: ${current}` : ""}
-
-Return ONLY valid JSON (no markdown, no code fences):
-{
-  "forward": "2-3 sentences seeding the forward path from current state toward the answer",
-  "reverse": "2-3 sentences seeding the reverse path from the achieved answer back to now"
-}`;
-
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-
-  if (!r.ok) {
-    const err = await r.text().catch(() => "");
-    throw new Error(`Anthropic API error ${r.status}: ${err}`);
-  }
-  const j = await r.json();
-  const text = j.content?.[0]?.text || "";
-  const cleaned = text
-    .replace(/```json\n?/g, "")
-    .replace(/```\n?/g, "")
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    return { forward: cleaned, reverse: "" };
-  }
 }
 
 async function handleTool(name, args) {
   if (name === "list_sessions") {
     const limit = typeof args?.limit === "number" ? args.limit : 10;
-    const demos = seedDemoSessions().slice(0, limit);
     return {
-      source: "client-only",
-      note: "TFR sessions live in browser localStorage (key: tfr-tree-v1). The server cannot read them. Below are demo sessions illustrating the shape. A future client-invocable path can let the browser return the real list.",
-      sessions: demos,
-      storageHint: {
-        storage: "localStorage",
-        key: "tfr-tree-v1",
-        shape:
-          "{ rootId, nodes: { [id]: { id, parentId, prompt, response, kind, createdAt } } }",
+      sessions: seedDemoSessions().slice(0, limit),
+      note: "Stub payload. Real sessions live in browser localStorage (key: tfr-tree-v1).",
+    };
+  }
+
+  if (name === "latest_thinking") {
+    return {
+      topic: "What would make TFR worth paying for?",
+      direction: "both",
+      forwardBranch: [
+        "Current: free static tool, ~100 weekly users, no auth.",
+        "Next: ship MCP endpoint so Claude desktop can invoke sessions.",
+        "Then: persist sessions server-side with magic-link auth.",
+        "Then: Pro tier ($9/mo) unlocks Claude Opus seeding + export to Notion.",
+      ],
+      reverseBranch: [
+        "Goal: 200 paying users at $9/mo = $1,800 MRR.",
+        "Before that: one viral artifact showing a real forward-reverse collision solving a real problem.",
+        "Before that: 5 power users generating shareable trees.",
+        "Before that: trees must be beautiful, exportable, and embed-friendly.",
+      ],
+      synthesis:
+        "The convergence point is a shareable artifact. Both paths end at 'tree as public object,' so the next move is making a single tree export that's gorgeous and embeddable.",
+      updated: new Date().toISOString(),
+    };
+  }
+
+  if (name === "start_session") {
+    const topic = args?.topic;
+    if (!topic || typeof topic !== "string") {
+      throw new Error("topic is required");
+    }
+    const direction = ["forward", "reverse", "both"].includes(args?.direction)
+      ? args.direction
+      : "both";
+    const initialQuestion =
+      direction === "forward"
+        ? `Starting from now, what's the first concrete move toward: ${topic}?`
+        : direction === "reverse"
+          ? `Imagine the goal is achieved: ${topic}. What's the last step before it?`
+          : `Seed both paths for: ${topic}. Forward from now, reverse from the answer.`;
+    return {
+      sessionId: uid(),
+      initialQuestion,
+      direction,
+      topic,
+      note: "Stub. Persist client-side under localStorage key 'tfr-tree-v1' to render in the TFR UI.",
+    };
+  }
+
+  if (name === "explain_technique") {
+    return {
+      name: "Forward-Reverse Thinking",
+      summary:
+        "A structured thinking technique that reasons about a goal from two directions at once: forward from the current state, and reverse from the achieved outcome. The two paths meet in the middle and surface the critical move.",
+      directions: {
+        forward:
+          "Start from the current state and project the next concrete move. Repeat. Good for surfacing hidden steps and incremental progress.",
+        reverse:
+          "Start from the achieved outcome and work backward one step at a time. Good for cutting through speculation and forcing specificity about what success actually looks like.",
+        both: "Run both branches and look for the convergence point. The step that appears in both branches is the critical move.",
       },
-    };
-  }
-
-  if (name === "new_session") {
-    const question = args?.question;
-    if (!question || typeof question !== "string") {
-      throw new Error("question is required");
-    }
-    const current = typeof args?.current === "string" ? args.current : null;
-
-    const tree = emptyTree(question);
-    const rootId = tree.rootId;
-
-    const forwardId = uid();
-    const reverseId = uid();
-    tree.nodes[forwardId] = {
-      id: forwardId,
-      parentId: rootId,
-      prompt: "Forward: what's the next concrete move from here?",
-      response: "",
-      kind: "forward",
-      collapsed: false,
-      createdAt: Date.now(),
-    };
-    tree.nodes[reverseId] = {
-      id: reverseId,
-      parentId: rootId,
-      prompt: "Reverse: from the answer, what's the last step before it?",
-      response: "",
-      kind: "reverse",
-      collapsed: false,
-      createdAt: Date.now() + 1,
-    };
-
-    const apiKey = process.env.ANTHROPIC_API_KEY?.replace(/\\n/g, "").trim();
-    let seedSource = "stub";
-    if (apiKey) {
-      try {
-        const seeded = await seedWithClaude({ question, current, apiKey });
-        if (seeded.forward) tree.nodes[forwardId].response = seeded.forward;
-        if (seeded.reverse) tree.nodes[reverseId].response = seeded.reverse;
-        seedSource = "claude-haiku-4-5";
-      } catch (err) {
-        seedSource = `stub (seed-failed: ${err.message})`;
-      }
-    }
-
-    return {
-      sessionId: rootId,
-      question,
-      current,
-      seedSource,
-      tree,
-      note: "Persist this tree in the browser under localStorage key 'tfr-tree-v1' to have the TFR UI pick it up.",
-    };
-  }
-
-  if (name === "get_session") {
-    const sessionId = args?.sessionId;
-    if (!sessionId || typeof sessionId !== "string") {
-      throw new Error("sessionId is required");
-    }
-    const demos = seedDemoSessions();
-    const match = demos.find((d) => d.sessionId === sessionId);
-    if (match) {
-      const tree = emptyTree(match.question);
-      const rootId = tree.rootId;
-      const fwdId = uid();
-      const revId = uid();
-      tree.nodes[fwdId] = {
-        id: fwdId,
-        parentId: rootId,
-        prompt: "Forward seed",
-        response: match.forwardSeed,
-        kind: "forward",
-        collapsed: false,
-        createdAt: match.createdAt + 1,
-      };
-      tree.nodes[revId] = {
-        id: revId,
-        parentId: rootId,
-        prompt: "Reverse seed",
-        response: match.reverseSeed,
-        kind: "reverse",
-        collapsed: false,
-        createdAt: match.createdAt + 2,
-      };
-      return {
-        sessionId,
-        source: "demo",
-        question: match.question,
-        tree,
-      };
-    }
-    return {
-      sessionId,
-      source: "client-only",
-      note: "Real sessions live in browser localStorage (tfr-tree-v1). Server returned a stub. See list_sessions for demo ids.",
-      tree: emptyTree(`(unknown session: ${sessionId})`),
+      synthesis:
+        "Compare the two branches. Where they meet is the next action. Where they diverge reveals hidden assumptions.",
+      whenToUse: [
+        "High-stakes strategic decisions where speculation is cheap.",
+        "Goals that feel far away and have too many possible first steps.",
+        "Situations where you keep looping on the same plan without committing.",
+      ],
+      docs: DOCS_URL,
     };
   }
 
