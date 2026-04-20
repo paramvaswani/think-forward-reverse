@@ -32,7 +32,9 @@
         href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
     /></noscript>
     <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/tree.css" />
     <script src="/app.js" defer></script>
+    <script type="module" src="/tree-entry.js" defer></script>
   </head>
   <body>
     <div class="progress-bar" id="progress"></div>
@@ -225,6 +227,29 @@
           </div>
         </div>
       </div>
+
+      <section class="tree-section" id="tree-section">
+        <div class="tree-header">
+          <h2>Thought Tree</h2>
+          <span class="sub"
+            >non-linear &middot; streaming &middot; localstorage</span
+          >
+        </div>
+        <div class="tree-toolbar">
+          <button class="tv-tool tv-tool-primary" id="tv-seed">
+            Seed from goal
+          </button>
+          <button class="tv-tool" id="tv-undo">Undo</button>
+          <button class="tv-tool" id="tv-reset">Reset</button>
+          <button class="tv-tool" id="tv-export-json">Export JSON</button>
+          <button class="tv-tool" id="tv-export-md">Export Markdown</button>
+          <button class="tv-tool tv-tool-stop" id="tv-stop">Stop stream</button>
+        </div>
+        <div class="tree-layout">
+          <div class="tree-canvas" id="thought-tree"></div>
+          <aside class="tree-detail" id="tv-detail"></aside>
+        </div>
+      </section>
 
       <div class="actions">
         <button class="btn btn-primary" onclick="saveSession()">Save</button>

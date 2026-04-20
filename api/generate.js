@@ -2,7 +2,15 @@ export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
 
-  const { goal, current, forward, reverse, apiKey: clientKey } = req.body;
+  const {
+    goal,
+    current,
+    forward,
+    reverse,
+    apiKey: clientKey,
+    mode,
+    context,
+  } = req.body || {};
   if (!goal) return res.status(400).json({ error: "Goal is required" });
 
   const apiKey =
@@ -13,6 +21,38 @@ export default async function handler(req, res) {
       .status(500)
       .json({ error: "No API key. Add your Anthropic key in Settings." });
 
+  const wantStream =
+    (req.query && (req.query.stream === "1" || req.query.stream === "true")) ||
+    mode === "thought";
+
+  // Thought-tree mode: freeform strategic response for a single prompt,
+  // with optional ancestor context. Streams by default.
+  if (mode === "thought") {
+    const ctxLines = Array.isArray(context)
+      ? context
+          .filter((c) => c && (c.prompt || c.response))
+          .map(
+            (c, i) =>
+              `Ancestor ${i + 1} prompt: ${c.prompt || "(none)"}\nAncestor ${i + 1} response: ${c.response || "(none)"}`,
+          )
+          .join("\n\n")
+      : "";
+    const thoughtPrompt = `You are a sharp strategic thinking partner. A user is exploring a branching thought tree.
+
+${ctxLines ? `Prior branch context:\n${ctxLines}\n\n` : ""}Current prompt: ${goal}
+
+Respond in 2-4 tight paragraphs. Be specific, concrete, and contrarian when warranted. No hedging, no bullet list unless it clarifies. Plain prose.`;
+
+    return streamOrBuffer({
+      res,
+      apiKey,
+      prompt: thoughtPrompt,
+      wantStream,
+      maxTokens: 700,
+    });
+  }
+
+  // Default mode: the original structured forward-reverse JSON plan.
   const hasSteps =
     (forward?.length > 0 && forward.some((s) => s.trim())) ||
     (reverse?.length > 0 && reverse.some((s) => s.trim()));
@@ -98,7 +138,6 @@ Rules:
     const data = await response.json();
     const text = data.content[0].text;
 
-    // Parse JSON from response, handling potential markdown fences
     let parsed;
     try {
       const cleaned = text
@@ -115,5 +154,128 @@ Rules:
     return res.status(200).json(parsed);
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+}
+
+async function streamOrBuffer({ res, apiKey, prompt, wantStream, maxTokens }) {
+  if (!wantStream) {
+    // plain JSON buffered path for thought mode
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: maxTokens,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text();
+        return res.status(r.status).json({ error: txt });
+      }
+      const j = await r.json();
+      const text = j.content?.[0]?.text || "";
+      return res.status(200).json({ response: text });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // SSE streaming
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const write = (event, data) => {
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch {}
+  };
+
+  let closed = false;
+  req.on("close", () => {
+    closed = true;
+  });
+
+  try {
+    const upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: maxTokens,
+        stream: true,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!upstream.ok || !upstream.body) {
+      const txt = await upstream.text().catch(() => "");
+      write("error", { message: `upstream ${upstream.status}: ${txt}` });
+      res.end();
+      return;
+    }
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let full = "";
+
+    while (!closed) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const frame = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let eventName = "message";
+        let dataStr = "";
+        for (const line of frame.split("\n")) {
+          if (line.startsWith("event:")) eventName = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+        }
+        if (!dataStr) continue;
+        try {
+          const p = JSON.parse(dataStr);
+          if (
+            eventName === "content_block_delta" &&
+            p.delta?.type === "text_delta"
+          ) {
+            full += p.delta.text;
+            write("token", { delta: p.delta.text });
+          } else if (eventName === "message_stop") {
+            write("done", { text: full });
+            res.end();
+            return;
+          } else if (eventName === "error") {
+            write("error", { message: p.error?.message || "upstream error" });
+            res.end();
+            return;
+          }
+        } catch {
+          // ignore malformed
+        }
+      }
+    }
+    write("done", { text: full });
+    res.end();
+  } catch (err) {
+    write("error", { message: err.message });
+    try {
+      res.end();
+    } catch {}
   }
 }
