@@ -22,7 +22,7 @@ const TOOLS = [
   {
     name: "new_session",
     description:
-      "Start a new forward-reverse thinking session for a question. Returns a starter tree with a forward-seeded node and a reverse-seeded node. If ANTHROPIC_API_KEY is set, uses Claude Haiku to seed both paths; otherwise returns a stub shell.",
+      "Start a new forward-reverse thinking session for a question. Returns a starter tree with a forward-seeded node and a reverse-seeded node. If GEMINI_API_KEY is set, uses Gemini 2.5 Pro to seed both paths; otherwise returns a stub shell.",
     inputSchema: {
       type: "object",
       required: ["question"],
@@ -109,7 +109,7 @@ function seedDemoSessions() {
   ];
 }
 
-async function seedWithClaude({ question, current, apiKey }) {
+async function seedWithGemini({ question, current, apiKey }) {
   const prompt = `You are seeding a Forward-Reverse thinking tree for this question.
 
 Question: ${question}
@@ -121,26 +121,25 @@ Return ONLY valid JSON (no markdown, no code fences):
   "reverse": "2-3 sentences seeding the reverse path from the achieved answer back to now"
 }`;
 
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
+      }),
     },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  );
 
   if (!r.ok) {
     const err = await r.text().catch(() => "");
-    throw new Error(`Anthropic API error ${r.status}: ${err}`);
+    throw new Error(`Gemini API error ${r.status}: ${err}`);
   }
   const j = await r.json();
-  const text = j.content?.[0]?.text || "";
+  const text =
+    j.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
   const cleaned = text
     .replace(/```json\n?/g, "")
     .replace(/```\n?/g, "")
@@ -200,14 +199,16 @@ async function handleTool(name, args) {
       createdAt: Date.now() + 1,
     };
 
-    const apiKey = process.env.ANTHROPIC_API_KEY?.replace(/\\n/g, "").trim();
+    const apiKey =
+      process.env.GEMINI_API_KEY?.replace(/\\n/g, "").trim() ||
+      process.env.GOOGLE_API_KEY?.replace(/\\n/g, "").trim();
     let seedSource = "stub";
     if (apiKey) {
       try {
-        const seeded = await seedWithClaude({ question, current, apiKey });
+        const seeded = await seedWithGemini({ question, current, apiKey });
         if (seeded.forward) tree.nodes[forwardId].response = seeded.forward;
         if (seeded.reverse) tree.nodes[reverseId].response = seeded.reverse;
-        seedSource = "claude-haiku-4-5";
+        seedSource = "gemini-2.5-pro";
       } catch (err) {
         seedSource = `stub (seed-failed: ${err.message})`;
       }

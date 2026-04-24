@@ -15,18 +15,17 @@ export default async function handler(req, res) {
 
   const apiKey =
     clientKey?.trim() ||
-    process.env.ANTHROPIC_API_KEY?.replace(/\\n/g, "").trim();
+    process.env.GEMINI_API_KEY?.replace(/\\n/g, "").trim() ||
+    process.env.GOOGLE_API_KEY?.replace(/\\n/g, "").trim();
   if (!apiKey)
     return res
       .status(500)
-      .json({ error: "No API key. Add your Anthropic key in Settings." });
+      .json({ error: "No API key. Add your Gemini key in Settings." });
 
   const wantStream =
     (req.query && (req.query.stream === "1" || req.query.stream === "true")) ||
     mode === "thought";
 
-  // Thought-tree mode: freeform strategic response for a single prompt,
-  // with optional ancestor context. Streams by default.
   if (mode === "thought") {
     const ctxLines = Array.isArray(context)
       ? context
@@ -44,6 +43,7 @@ ${ctxLines ? `Prior branch context:\n${ctxLines}\n\n` : ""}Current prompt: ${goa
 Respond in 2-4 tight paragraphs. Be specific, concrete, and contrarian when warranted. No hedging, no bullet list unless it clarifies. Plain prose.`;
 
     return streamOrBuffer({
+      req,
       res,
       apiKey,
       prompt: thoughtPrompt,
@@ -52,7 +52,6 @@ Respond in 2-4 tight paragraphs. Be specific, concrete, and contrarian when warr
     });
   }
 
-  // Default mode: the original structured forward-reverse JSON plan.
   const hasSteps =
     (forward?.length > 0 && forward.some((s) => s.trim())) ||
     (reverse?.length > 0 && reverse.some((s) => s.trim()));
@@ -114,29 +113,28 @@ Rules:
 - Be specific and actionable using the actual goal and context.`;
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 2048, temperature: 0.7 },
+        }),
       },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    );
 
     if (!response.ok) {
       const err = await response.text();
       return res
         .status(response.status)
-        .json({ error: `Anthropic API error: ${err}` });
+        .json({ error: `Gemini API error: ${err}` });
     }
 
     const data = await response.json();
-    const text = data.content[0].text;
+    const text =
+      data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
 
     let parsed;
     try {
@@ -157,36 +155,40 @@ Rules:
   }
 }
 
-async function streamOrBuffer({ res, apiKey, prompt, wantStream, maxTokens }) {
+async function streamOrBuffer({
+  req,
+  res,
+  apiKey,
+  prompt,
+  wantStream,
+  maxTokens,
+}) {
   if (!wantStream) {
-    // plain JSON buffered path for thought mode
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+          }),
         },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: maxTokens,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
+      );
       if (!r.ok) {
         const txt = await r.text();
         return res.status(r.status).json({ error: txt });
       }
       const j = await r.json();
-      const text = j.content?.[0]?.text || "";
+      const text =
+        j.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
       return res.status(200).json({ response: text });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
   }
 
-  // SSE streaming
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -205,21 +207,17 @@ async function streamOrBuffer({ res, apiKey, prompt, wantStream, maxTokens }) {
   });
 
   try {
-    const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        Accept: "text/event-stream",
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
+        }),
       },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: maxTokens,
-        stream: true,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    );
 
     if (!upstream.ok || !upstream.body) {
       const txt = await upstream.text().catch(() => "");
@@ -241,27 +239,23 @@ async function streamOrBuffer({ res, apiKey, prompt, wantStream, maxTokens }) {
       while ((idx = buf.indexOf("\n\n")) !== -1) {
         const frame = buf.slice(0, idx);
         buf = buf.slice(idx + 2);
-        let eventName = "message";
         let dataStr = "";
         for (const line of frame.split("\n")) {
-          if (line.startsWith("event:")) eventName = line.slice(6).trim();
-          else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+          if (line.startsWith("data:")) dataStr += line.slice(5).trim();
         }
         if (!dataStr) continue;
         try {
           const p = JSON.parse(dataStr);
-          if (
-            eventName === "content_block_delta" &&
-            p.delta?.type === "text_delta"
-          ) {
-            full += p.delta.text;
-            write("token", { delta: p.delta.text });
-          } else if (eventName === "message_stop") {
+          const delta =
+            p.candidates?.[0]?.content?.parts?.map((x) => x.text).join("") ||
+            "";
+          if (delta) {
+            full += delta;
+            write("token", { delta });
+          }
+          const finish = p.candidates?.[0]?.finishReason;
+          if (finish) {
             write("done", { text: full });
-            res.end();
-            return;
-          } else if (eventName === "error") {
-            write("error", { message: p.error?.message || "upstream error" });
             res.end();
             return;
           }
